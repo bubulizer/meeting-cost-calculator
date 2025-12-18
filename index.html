@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Meeting Cost Calculator</title>
+  <style>
+    :root { color-scheme: light; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; background: #f6f7fb; color: #111; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 28px 16px 64px; }
+    header { display:flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    h1 { margin:0; font-size: clamp(1.25rem, 2.6vw, 1.9rem); }
+    .hint { margin: 6px 0 0; opacity: .75; font-size: .95rem; }
+
+    .grid { display:grid; grid-template-columns: 1fr; gap: 14px; margin-top: 18px; }
+    @media (min-width: 900px){ .grid{ grid-template-columns: 1.15fr .85fr; gap: 18px; } }
+
+    .card { background:#fff; border-radius: 14px; padding:16px; box-shadow: 0 8px 24px rgba(0,0,0,.06); border: 1px solid rgba(0,0,0,.06); }
+    .card h2 { margin:0 0 10px; font-size: 1.05rem; }
+    .row { display:grid; grid-template-columns: 1fr; gap:10px; margin: 10px 0; }
+    @media (min-width: 560px){ .row.two{ grid-template-columns: 1fr 1fr; } }
+
+    label { display:block; font-size: .92rem; margin-bottom:6px; opacity: .9; }
+    input, select {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(0,0,0,.18);
+      outline: none;
+      font-size: 1rem;
+      background:#fff;
+      box-sizing: border-box;
+    }
+    input:focus, select:focus { border-color:#4a67ff; box-shadow: 0 0 0 3px rgba(74,103,255,.18); }
+
+    .btns { display:flex; gap:10px; flex-wrap: wrap; margin-top: 12px; }
+    button {
+      border:0; border-radius: 12px; padding: 10px 12px; font-weight: 600; cursor:pointer;
+      background:#111; color:#fff;
+    }
+    button.secondary { background:#e9ecff; color:#111; }
+    .note { margin-top: 10px; font-size: .92rem; opacity: .75; }
+
+    .kpi { display:grid; grid-template-columns: 1fr; gap: 10px; }
+    @media (min-width: 560px){ .kpi{ grid-template-columns: 1fr 1fr; } }
+    .metric { padding:12px; border-radius:12px; background:#f7f8ff; border: 1px solid rgba(74,103,255,.18); }
+    .metric .name{ font-size: .9rem; opacity: .75; margin-bottom: 6px; }
+    .metric .val{ font-weight: 800; font-size: 1.35rem; letter-spacing: .2px; }
+    .metric .sub{ font-size: .9rem; opacity: .75; margin-top: 4px; }
+
+    footer { margin-top: 18px; font-size: .9rem; opacity: .7; }
+    code { background: rgba(0,0,0,.06); padding: 2px 6px; border-radius: 8px; }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Meeting Cost Calculator</h1>
+        <p class="hint">Estimate meeting cost in real time. (Yes, that “quick sync” has a price tag.)</p>
+      </div>
+      <div style="opacity:.7;font-size:.95rem">Single-file • Vanilla HTML/CSS/JS</div>
+    </header>
+
+    <div class="grid">
+      <section class="card" aria-label="Inputs">
+        <h2>Inputs</h2>
+
+        <div class="row two">
+          <div>
+            <label for="people">Participants</label>
+            <input id="people" type="number" min="1" step="1" value="5" />
+          </div>
+
+          <div>
+            <label for="rate">Hourly cost per person</label>
+            <input id="rate" type="number" min="0" step="0.01" value="15" />
+          </div>
+        </div>
+
+        <div class="row two">
+          <div>
+            <label for="duration">Duration</label>
+            <select id="duration">
+              <option value="15">15 minutes</option>
+              <option value="30">30 minutes</option>
+              <option value="45">45 minutes</option>
+              <option value="60" selected>1 hour</option>
+              <option value="90">1.5 hours</option>
+              <option value="120">2 hours</option>
+              <option value="custom">Custom…</option>
+            </select>
+          </div>
+
+          <div id="customWrap" style="display:none">
+            <label for="customMinutes">Custom minutes</label>
+            <input id="customMinutes" type="number" min="1" step="1" value="60" />
+          </div>
+        </div>
+
+        <div class="row two">
+          <div>
+            <label for="currency">Currency</label>
+            <select id="currency">
+              <option value="USD" selected>USD ($)</option>
+              <option value="UGX">UGX (USh)</option>
+              <option value="EUR">EUR (€)</option>
+              <option value="GBP">GBP (£)</option>
+              <option value="NGN">NGN (₦)</option>
+              <option value="KES">KES (KSh)</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="overhead">Overhead multiplier</label>
+            <input id="overhead" type="number" min="1" step="0.01" value="1.00" />
+          </div>
+        </div>
+
+        <div class="btns">
+          <button id="copyBtn" class="secondary" type="button">Copy summary</button>
+          <button id="resetBtn" type="button">Reset</button>
+        </div>
+
+        <div id="toast" class="note" role="status" aria-live="polite"></div>
+
+        <footer>
+          Tip: hourly cost can include salary + benefits + facilities. Multiply by overhead if you want the “real” figure.
+        </footer>
+      </section>
+
+      <section class="card" aria-label="Results">
+        <h2>Results</h2>
+
+        <div class="kpi">
+          <div class="metric">
+            <div class="name">Total meeting cost</div>
+            <div class="val" id="totalCost">$0.00</div>
+            <div class="sub" id="totalSub">—</div>
+          </div>
+
+          <div class="metric">
+            <div class="name">Cost per minute</div>
+            <div class="val" id="perMin">$0.00</div>
+            <div class="sub">Perfect for killing meetings fast.</div>
+          </div>
+
+          <div class="metric">
+            <div class="name">Cost per person</div>
+            <div class="val" id="perPerson">$0.00</div>
+            <div class="sub">Assumes same hourly cost for everyone.</div>
+          </div>
+
+          <div class="metric">
+            <div class="name">Time</div>
+            <div class="val" id="durationOut">0 min</div>
+            <div class="sub" id="rateOut">—</div>
+          </div>
+        </div>
+
+        <p class="note">
+          Math model: <code>cost = people × hourly_rate × (minutes / 60) × overhead</code>.
+        </p>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    const people = $("people");
+    const rate = $("rate");
+    const duration = $("duration");
+    const customWrap = $("customWrap");
+    const customMinutes = $("customMinutes");
+    const currency = $("currency");
+    const overhead = $("overhead");
+
+    const totalCost = $("totalCost");
+    const totalSub = $("totalSub");
+    const perMin = $("perMin");
+    const perPerson = $("perPerson");
+    const durationOut = $("durationOut");
+    const rateOut = $("rateOut");
+
+    const copyBtn = $("copyBtn");
+    const resetBtn = $("resetBtn");
+    const toast = $("toast");
+
+    const currencySymbol = (cur) => ({
+      USD: "$", EUR: "€", GBP: "£", UGX: "USh", NGN: "₦", KES: "KSh"
+    }[cur] ?? cur);
+
+    function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+    function num(v) { const x = Number(v); return Number.isFinite(x) ? x : 0; }
+
+    function fmtMoney(cur, value) {
+      const sym = currencySymbol(cur);
+      return (sym === "USh" || sym === "KSh")
+        ? `${sym} ${value.toFixed(0)}`
+        : `${sym}${value.toFixed(2)}`;
+    }
+
+    function getMinutes() {
+      if (duration.value === "custom") {
+        return clamp(Math.round(num(customMinutes.value)), 1, 1000000);
+      }
+      return clamp(Math.round(num(duration.value)), 1, 1000000);
+    }
+
+    function compute() {
+      const p = clamp(Math.round(num(people.value)), 1, 1000000);
+      const r = clamp(num(rate.value), 0, 1e12);
+      const oh = clamp(num(overhead.value), 1, 1000);
+      const mins = getMinutes();
+
+      const hours = mins / 60;
+      const total = p * r * hours * oh;
+      const ppm = mins > 0 ? (total / mins) : 0;
+      const ppp = p > 0 ? (total / p) : 0;
+
+      const cur = currency.value;
+
+      totalCost.textContent = fmtMoney(cur, total);
+      perMin.textContent = fmtMoney(cur, ppm);
+      perPerson.textContent = fmtMoney(cur, ppp);
+
+      durationOut.textContent = `${mins} min`;
+      rateOut.textContent = `Rate: ${fmtMoney(cur, r)} / hour · Overhead: ×${oh.toFixed(2)}`;
+      totalSub.textContent = `${p} people × ${mins} min`;
+
+      toast.textContent = "";
+    }
+
+    function shareText() {
+      const cur = currency.value;
+      const sym = currencySymbol(cur);
+      const mins = getMinutes();
+      const p = Math.round(num(people.value) || 0);
+      const r = (num(rate.value) || 0).toFixed(2);
+      const oh = (num(overhead.value) || 1).toFixed(2);
+      return [
+        "Meeting Cost Summary",
+        `Participants: ${p}`,
+        `Rate/person: ${sym} ${r} per hour`,
+        `Duration: ${mins} minutes`,
+        `Overhead: x${oh}`,
+        `Total: ${totalCost.textContent}`,
+        `Per minute: ${perMin.textContent}`,
+        `Per person: ${perPerson.textContent}`,
+      ].join("\n");
+    }
+
+    // Clipboard: secure-context API + robust fallback for file://
+    async function copySummary() {
+      const text = shareText();
+
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(text);
+          toast.textContent = "Copied. Paste it anywhere.";
+          return;
+        }
+      } catch (_) { /* fallback below */ }
+
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        ta.style.top = "-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        ta.setSelectionRange(0, ta.value.length);
+
+        const ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+
+        toast.textContent = ok ? "Copied (fallback). Paste it anywhere." : "Copy blocked. Select manually.";
+      } catch {
+        toast.textContent = "Copy blocked. Select manually.";
+      }
+    }
+
+    function resetAll() {
+      people.value = 5;
+      rate.value = 15;
+      duration.value = "60";
+      customMinutes.value = 60;
+      customWrap.style.display = "none";
+      currency.value = "USD";
+      overhead.value = "1.00";
+      compute();
+      toast.textContent = "";
+    }
+
+    duration.addEventListener("change", () => {
+      const isCustom = duration.value === "custom";
+      customWrap.style.display = isCustom ? "block" : "none";
+      compute();
+    });
+
+    [people, rate, customMinutes, currency, overhead].forEach(el => {
+      el.addEventListener("input", compute);
+      el.addEventListener("change", compute);
+    });
+
+    copyBtn.addEventListener("click", copySummary);
+    resetBtn.addEventListener("click", resetAll);
+
+    compute();
+  </script>
+</body>
+</html>
